@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素艺术生成器</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+        
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, select, button {
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border: none;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .color-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #color {
+            width: 50px;
+            height: 30px;
+            padding: 0;
+            border: 1px solid #bdc3c7;
+        }
+        
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        #pixelCanvas {
+            border: 1px solid #bdc3c7;
+            background-color: white;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+        
+        .template-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .template {
+            width: 50px;
+            height: 50px;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        
+        .template:hover {
+            border-color: #3498db;
+        }
+        
+        .tools {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .tool-btn {
+            flex: 1;
+        }
+        
+        .template-import {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>像素艺术生成器</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="gridSize">画布大小</label>
+                <select id="gridSize">
+                    <option value="16">16×16 (小图标)</option>
+                    <option value="32" selected>32×32 (头像)</option>
+                    <option value="64">64×64</option>
+                    <option value="128">128×128</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="pixelSize">像素大小</label>
+                <select id="pixelSize">
+                    <option value="10">10px</option>
+                    <option value="15" selected>15px</option>
+                    <option value="20">20px</option>
+                    <option value="25">25px</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>颜色</label>
+                <div class="color-picker">
+                    <input type="color" id="color" value="#3498db">
+                    <button id="randomColor">随机</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>模板</label>
+                <select id="templateSelect">
+                    <option value="">选择模板...</option>
+                    <option value="heart">爱心</option>
+                    <option value="smile">笑脸</option>
+                    <option value="tree">圣诞树</option>
+                    <option value="cat">猫咪</option>
+                </select>
+                <div class="template-import">
+                    <label for="imageUpload">或导入图片</label>
+                    <input type="file" id="imageUpload" accept="image/*">
+                </div>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="pixelCanvas"></canvas>
+        </div>
+        
+        <div class="tools">
+            <button id="clearCanvas" class="tool-btn">清空画布</button>
+            <button id="exportPNG" class="tool-btn">导出PNG</button>
+        </div>
+        
+        <div class="template-preview" id="templatePreviews">
+            <!-- 模板预览将在这里动态生成 -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const canvas = document.getElementById('pixelCanvas');
+            const ctx = canvas.getContext('2d');
+            const gridSizeSelect = document.getElementById('gridSize');
+            const pixelSizeSelect = document.getElementById('pixelSize');
+            const colorPicker = document.getElementById('color');
+            const randomColorBtn = document.getElementById('randomColor');
+            const templateSelect = document.getElementById('templateSelect');
+            const imageUpload = document.getElementById('imageUpload');
+            const clearCanvasBtn = document.getElementById('clearCanvas');
+            const exportPNGBtn = document.getElementById('exportPNG');
+            const templatePreviews = document.getElementById('templatePreviews');
+            
+            // 初始化变量
+            let gridSize = parseInt(gridSizeSelect.value);
+            let pixelSize = parseInt(pixelSizeSelect.value);
+            let currentColor = colorPicker.value;
+            let isDrawing = false;
+            let isErasing = false;
+            
+            // 预定义模板
+            const templates = {
+                heart: {
+                    size: 16,
+                    data: [
+                        [0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0],
+                        [0,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0],
+                        [1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+                        [1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+                        [1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+                        [0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
+                        [0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0],
+                        [0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0],
+                        [0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+                    ],
+                    color: '#ff0000'
+                },
+                smile: {
+                    size: 16,
+                    data: [
+                        [0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
+                        [0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+                        [1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0],
+                        [1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0],
+                        [1,1,0,1,1,0,0,0,0,1,1,0,1,1,0,0],
+                        [1,1,0,1,1,0,0,0,0,1,1,0,1,1,0,0],
+                        [1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0],
+                        [1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0],
+                        [1,1,0,1,0,0,0,0,0,0,1,0,1,1,0,0],
+                        [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0],
+                        [0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,0],
+                        [0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0]
+                    ],
+                    color: '#ffff00'
+                },
+                tree: {
+                    size: 16,
+                    data: [
+                        [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0],
+                        [0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0],
+                        [0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0],
+                        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0],
+                        [0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+                        [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
+                        [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0]
+                    ],
+                    color: '#00aa00'
+                },
+                cat: {
+                    size: 16,
+                    data: [
+                        [0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],
+                        [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+                        [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+                        [0,1,1,1,0,0,1,1,1,1,0,0,1,1,1,0],
+                        [0,1,1,1,0,0,1,1,1,1,0,0,1,1,1,0],
+                        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                        [1,1,0,1,1,1,0,0,0,0,1,1,1,0,1,1],
+                        [1,1,0,0,1,1,0,0,0,0,1,1,0,0,1,1],
+                        [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0]
+                    ],
+                    color: '#ffa500'
+                }
+            };
+            
+            // 初始化画布
+            function initCanvas() {
+                gridSize = parseInt(gridSizeSelect.value);
+                pixelSize = parseInt(pixelSizeSelect.value);
+                
+                canvas.width = gridSize * pixelSize;
+                canvas.height = gridSize * pixelSize;
+                
+                // 绘制网格
+                drawGrid();
+                
+                // 生成模板预览
+                generateTemplatePreviews();
+            }
+            
+            // 绘制网格
+            function drawGrid() {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.strokeStyle = '#e0e0e0';
+                ctx.lineWidth = 0.5;
+                
+                for (let x = 0; x <= gridSize; x++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x * pixelSize, 0);
+                    ctx.lineTo(x * pixelSize, gridSize * pixelSize);
+                    ctx.stroke();
+                }
+                
+                for (let y = 0; y <= gridSize; y++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y * pixelSize);
+                    ctx.lineTo(gridSize * pixelSize, y * pixelSize);
+                    ctx.stroke();
+                }
+            }
+            
+            // 生成模板预览
+            function generateTemplatePreviews() {
+                templatePreviews.innerHTML = '';
+                
+                for (const [name, template] of Object.entries(templates)) {
+                    const previewCanvas = document.createElement('canvas');
+                    previewCanvas.width = template.size;
+                    previewCanvas.height = template.size;
+                    previewCanvas.className = 'template';
+                    previewCanvas.dataset.template = name;
+                    
+                    const previewCtx = previewCanvas.getContext('2d');
+                    
+                    // 绘制模板预览
+                    for (let y = 0; y < template.data.length; y++) {
+                        for (let x = 0; x < template.data[y].length; x++) {
+                            if (template.data[y][x]) {
+                                previewCtx.fillStyle = template.color;
+                                previewCtx.fillRect(x, y, 1, 1);
+                            }
+                        }
+                    }
+                    
+                    previewCanvas.addEventListener('click', function() {
+                        applyTemplate(name);
+                    });
+                    
+                    templatePreviews.appendChild(previewCanvas);
+                }
+            }
+            
+            // 应用模板
+            function applyTemplate(templateName) {
+                const template = templates[templateName];
+                currentColor = template.color;
+                colorPicker.value = currentColor;
+                
+                // 计算缩放比例
+                const scale = gridSize / template.size;
+                
+                // 清空画布
+                drawGrid();
+                
+                // 绘制模板
+                for (let y = 0; y < template.data.length; y++) {
+                    for (let x = 0; x < template.data[y].length; x++) {
+                        if (template.data[y][x]) {
+                            const scaledX = Math.floor(x * scale);
+                            const scaledY = Math.floor(y * scale);
+                            const scaledSize = Math.max(1, Math.floor(scale));
+                            
+                            ctx.fillStyle = currentColor;
+                            ctx.fillRect(
+                                scaledX * pixelSize, 
+                                scaledY * pixelSize, 
+                                scaledSize * pixelSize, 
+                                scaledSize * pixelSize
+                            );
+                        }
+                    }
+                }
+            }
+            
+            // 从图片导入
+            function importImage(file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // 清空画布
+                        drawGrid();
+                        
+                        // 计算缩放比例
+                        const scale = Math.min(
+                            canvas.width / img.width,
+                            canvas.height / img.height
+                        );
+                        
+                        // 绘制图像
+                        ctx.drawImage(
+                            img, 
+                            0, 0, img.width, img.height,
+                            0, 0, img.width * scale, img.height * scale
+                        );
+                        
+                        // 像素化处理
+                        pixelateImage();
+                    };
+                    img.src = e.target.result;
+                };
+                
+                reader.readAsDataURL(file);
+            }
+            
+            // 像素化图像
+            function pixelateImage() {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                for (let y = 0; y < gridSize; y++) {
+                    for (let x = 0; x < gridSize; x++) {
+                        const pixelX = x * pixelSize;
+                        const pixelY = y * pixelSize;
+                        
+                        // 获取中心点颜色
+                        const centerX = pixelX + Math.floor(pixelSize / 2);
+                        const centerY = pixelY + Math.floor(pixelSize / 2);
+                        
+                        const index = (centerY * canvas.width + centerX) * 4;
+                        const r = data[index];
+                        const g = data[index + 1];
+                        const b = data[index + 2];
+                        const a = data[index + 3];
+                        
+                        // 填充整个像素块
+                        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+                        ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
+                    }
+                }
+            }
+            
+            // 获取鼠标位置对应的网格坐标
+            function getGridPosition(event) {
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.floor((event.clientX - rect.left) / pixelSize);
+                const y = Math.floor((event.clientY - rect.top) / pixelSize);
+                
+                return { x, y };
+            }
+            
+            // 绘制像素
+            function drawPixel(x, y) {
+                ctx.fillStyle = isErasing ? '#ffffff' : currentColor;
+                ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+                
+                // 重新绘制网格线
+                ctx.strokeStyle = '#e0e0e0';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+            }
+            
+            // 填充算法 (类似油漆桶工具)
+            function floodFill(startX, startY, targetColor, replacementColor) {
+                // 将颜色转换为字符串比较
+                targetColor = colorToRGBA(targetColor);
+                replacementColor = colorToRGBA(replacementColor);
+                
+                // 如果目标颜色和替换颜色相同，不做任何操作
+                if (targetColor === replacementColor) return;
+                
+                // 获取初始像素颜色
+                const initialPixel = ctx.getImageData(startX * pixelSize, startY * pixelSize, 1, 1).data;
+                const initialColor = `rgba(${initialPixel[0]}, ${initialPixel[1]}, ${initialPixel[2]}, ${initialPixel[3] / 255})`;
+                
+                // 如果初始颜色不是目标颜色，不做任何操作
+                if (initialColor !== targetColor) return;
+                
+                // 使用队列实现泛洪填充
+                const queue = [{x: startX, y: startY}];
+                const width = gridSize;
+                const height = gridSize;
+                
+                // 记录已访问的像素
+                const visited = new Array(width * height).fill(false);
+                
+                while (queue.length > 0) {
+                    const {x, y} = queue.shift();
+                    const index = y * width + x;
+                    
+                    // 检查边界和是否已访问
+                    if (x < 0 || x >= width || y < 0 || y >= height || visited[index]) {
+                        continue;
+                    }
+                    
+                    // 获取当前像素颜色
+                    const pixel = ctx.getImageData(x * pixelSize, y * pixelSize, 1, 1).data;
+                    const currentColor = `rgba(${pixel[0]}, ${pixel[1]}, ${pixel[2]}, ${pixel[3] / 255})`;
+                    
+                    // 如果颜色匹配，则填充并检查相邻像素
+                    if (currentColor === targetColor) {
+                        ctx.fillStyle = replacementColor;
+                        ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+                        
+                        // 重新绘制网格线
+                        ctx.strokeStyle = '#e0e0e0';
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+                        
+                        visited[index] = true;
+                        
+                        // 添加相邻像素到队列
+                        queue.push({x: x + 1, y});
+                        queue.push({x: x - 1, y});
+                        queue.push({x, y: y + 1});
+                        queue.push({x, y: y - 1});
+                    }
+                }
+            }
+            
+            // 将颜色转换为RGBA字符串
+            function colorToRGBA(color) {
+                // 如果是十六进制颜色
+                if (color.startsWith('#')) {
+                    const r = parseInt(color.substr(1, 2), 16);
+                    const g = parseInt(color.substr(3, 2), 16);
+                    const b = parseInt(color.substr(5, 2), 16);
+                    return `rgba(${r}, ${g}, ${b}, 1)`;
+                }
+                
+                // 如果是rgb或rgba颜色
+                return color;
+            }
+            
+            // 生成随机颜色
+            function getRandomColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            }
+            
+            // 导出为PNG
+            function exportToPNG() {
+                const link = document.createElement('a');
+                link.download = 'pixel-art.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }
+            
+            // 事件监听器
+            canvas.addEventListener('mousedown', function(e) {
+                isDrawing = true;
+                const { x, y } = getGridPosition(e);
+                
+                if (e.ctrlKey || e.metaKey) {
+                    // 按住Ctrl键(Mac上是Command键)进行填充
+                    floodFill(x, y, '#ffffff', currentColor);
+                } else if (e.shiftKey) {
+                    // 按住Shift键进行擦除
+                    isErasing = true;
+                    drawPixel(x, y);
+                } else {
+                    // 正常绘制
+                    isErasing = false;
+                    drawPixel(x, y);
+                }
+            });
+            
+            canvas.addEventListener('mousemove', function(e) {
+                if (!isDrawing) return;
+                const { x, y } = getGridPosition(e);
+                drawPixel(x, y);
+            });
+            
+            canvas.addEventListener('mouseup', function() {
+                isDrawing = false;
+            });
+            
+            canvas.addEventListener('mouseleave', function() {
+                isDrawing = false;
+            });
+            
+            gridSizeSelect.addEventListener('change', initCanvas);
+            pixelSizeSelect.addEventListener('change', initCanvas);
+            colorPicker.addEventListener('input', function() {
+                currentColor = this.value;
+            });
+            
+            randomColorBtn.addEventListener('click', function() {
+                currentColor = getRandomColor();
+                colorPicker.value = currentColor;
+            });
+            
+            templateSelect.addEventListener('change', function() {
+                if (this.value) {
+                    applyTemplate(this.value);
+                    this.value = '';
+                }
+            });
+            
+            imageUpload.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    importImage(this.files[0]);
+                    this.value = ''; // 清除选择，以便可以重复选择同一文件
+                }
+            });
+            
+            clearCanvasBtn.addEventListener('click', drawGrid);
+            exportPNGBtn.addEventListener('click', exportToPNG);
+            
+            // 初始化
+            initCanvas();
+        });
+    </script>
+</body>
+</html>
