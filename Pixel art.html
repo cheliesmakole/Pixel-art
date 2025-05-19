@@ -20,6 +20,13 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-right: 220px; /* 180px + 20px*2 */
         }
         
         h1 {
@@ -29,12 +36,19 @@
         
         .controls {
             display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px;
+            flex-direction: column;
+            gap: 10px;
+            width: min-content;
+            min-width: 180px;
+            padding: 10px;
             background-color: #ecf0f1;
             border-radius: 5px;
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-sizing: border-box;
         }
         
         .control-group {
@@ -126,9 +140,25 @@
 </head>
 <body>
     <div class="container">
-        <h1>像素艺术生成器</h1>
-        
         <div class="controls">
+            <div class="control-group">
+                <label>绘图工具</label>
+                <select id="drawingTool">
+                    <option value="pencil" selected>铅笔</option>
+                    <option value="line">直线</option>
+                    <option value="rectangle">矩形</option>
+                    <option value="circle">圆形</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>调色板</label>
+                <div class="palette" id="colorPalette">
+                    <!-- 调色板颜色将在这里动态生成 -->
+                </div>
+                <button id="saveColorBtn" style="margin-top: 5px;">保存当前颜色</button>
+            </div>
+            
             <div class="control-group">
                 <label for="gridSize">画布大小</label>
                 <select id="gridSize">
@@ -154,6 +184,7 @@
                 <div class="color-picker">
                     <input type="color" id="color" value="#3498db">
                     <button id="randomColor">随机</button>
+                    <button id="gradientMode">渐变模式</button>
                 </div>
             </div>
             
@@ -173,12 +204,19 @@
             </div>
         </div>
         
-        <div class="canvas-container">
-            <canvas id="pixelCanvas"></canvas>
-        </div>
-        
-        <div class="tools">
+        <div class="main-content">
+            <h1>像素艺术生成器</h1>
+            
+            <div class="canvas-container">
+                <canvas id="pixelCanvas"></canvas>
+            </div>
+            
+            <div class="tools">
+            <button id="undoBtn" class="tool-btn" title="撤销 (Ctrl+Z)">↩️ 撤销</button>
+            <button id="redoBtn" class="tool-btn" title="重做 (Ctrl+Y)">↪️ 重做</button>
             <button id="clearCanvas" class="tool-btn">清空画布</button>
+            <button id="saveProject" class="tool-btn">保存项目</button>
+            <button id="loadProject" class="tool-btn">加载项目</button>
             <button id="exportPNG" class="tool-btn">导出PNG</button>
         </div>
         
@@ -208,6 +246,15 @@
             let currentColor = colorPicker.value;
             let isDrawing = false;
             let isErasing = false;
+            let isGradientMode = false;
+            let currentTool = 'pencil';
+            let startX, startY;
+            let paletteColors = JSON.parse(localStorage.getItem('paletteColors')) || [];
+            
+            // 撤销/重做历史记录
+            const MAX_HISTORY = 50;
+            let historyStack = [];
+            let redoStack = [];
             
             // 预定义模板
             const templates = {
@@ -366,6 +413,10 @@
                 // 清空画布
                 drawGrid();
                 
+            // 保存状态
+            saveState();
+            updateUndoRedoButtons();
+                
                 // 绘制模板
                 for (let y = 0; y < template.data.length; y++) {
                     for (let x = 0; x < template.data[y].length; x++) {
@@ -451,7 +502,120 @@
                 const x = Math.floor((event.clientX - rect.left) / pixelSize);
                 const y = Math.floor((event.clientY - rect.top) / pixelSize);
                 
-                return { x, y };
+                return { 
+                    x: Math.max(0, Math.min(x, gridSize - 1)),
+                    y: Math.max(0, Math.min(y, gridSize - 1))
+                };
+            }
+            
+            // 保存当前画布状态
+            function saveState() {
+                // 保存当前状态到历史记录
+                const state = canvas.toDataURL('image/png');
+                historyStack.push(state);
+                
+                // 限制历史记录数量
+                if (historyStack.length > MAX_HISTORY) {
+                    historyStack.shift();
+                }
+                
+                // 清空重做栈
+                redoStack = [];
+            }
+            
+            // 恢复画布状态
+            function restoreState(state) {
+                const img = new Image();
+                img.onload = function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = state;
+            }
+            
+            // 撤销操作
+            function undo() {
+                if (historyStack.length > 0) {
+                    const state = historyStack.pop();
+                    redoStack.push(canvas.toDataURL('image/png'));
+                    restoreState(state);
+                    updateUndoRedoButtons();
+                }
+            }
+            
+            // 重做操作
+            function redo() {
+                if (redoStack.length > 0) {
+                    const state = redoStack.pop();
+                    historyStack.push(canvas.toDataURL('image/png'));
+                    restoreState(state);
+                    updateUndoRedoButtons();
+                }
+            }
+            
+            // 绘制直线
+            function drawLine(x1, y1, x2, y2) {
+                const dx = Math.abs(x2 - x1);
+                const dy = Math.abs(y2 - y1);
+                const sx = (x1 < x2) ? 1 : -1;
+                const sy = (y1 < y2) ? 1 : -1;
+                let err = dx - dy;
+                
+                while(true) {
+                    drawPixel(x1, y1);
+                    
+                    if (x1 === x2 && y1 === y2) break;
+                    const e2 = 2 * err;
+                    if (e2 > -dy) { err -= dy; x1 += sx; }
+                    if (e2 < dx) { err += dx; y1 += sy; }
+                }
+            }
+            
+            // 绘制矩形
+            function drawRectangle(x1, y1, x2, y2, filled = true) {
+                const minX = Math.min(x1, x2);
+                const maxX = Math.max(x1, x2);
+                const minY = Math.min(y1, y2);
+                const maxY = Math.max(y1, y2);
+                
+                if (filled) {
+                    for (let y = minY; y <= maxY; y++) {
+                        for (let x = minX; x <= maxX; x++) {
+                            drawPixel(x, y);
+                        }
+                    }
+                } else {
+                    // 绘制边框
+                    for (let x = minX; x <= maxX; x++) {
+                        drawPixel(x, minY);
+                        drawPixel(x, maxY);
+                    }
+                    for (let y = minY + 1; y < maxY; y++) {
+                        drawPixel(minX, y);
+                        drawPixel(maxX, y);
+                    }
+                }
+            }
+            
+            // 绘制圆形
+            function drawCircle(x1, y1, x2, y2, filled = true) {
+                const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                const centerX = x1;
+                const centerY = y1;
+                
+                for (let y = -radius; y <= radius; y++) {
+                    for (let x = -radius; x <= radius; x++) {
+                        if (x*x + y*y <= radius*radius + radius*0.8) { // 添加0.8因子使圆形更平滑
+                            if (filled || Math.abs(x*x + y*y - radius*radius) <= radius) {
+                                const px = Math.round(centerX + x);
+                                const py = Math.round(centerY + y);
+                                if (px >= 0 && px < gridSize && py >= 0 && py < gridSize) {
+                                    drawPixel(px, py);
+                                }
+                            }
+                        }
+                    }
+                }
             }
             
             // 绘制像素
@@ -537,14 +701,86 @@
                 return color;
             }
             
-            // 生成随机颜色
-            function getRandomColor() {
-                const letters = '0123456789ABCDEF';
-                let color = '#';
-                for (let i = 0; i < 6; i++) {
-                    color += letters[Math.floor(Math.random() * 16)];
-                }
-                return color;
+            // 生成随机相近颜色（基于当前颜色）
+            function getRandomColor(baseColor = currentColor) {
+                // 将十六进制颜色转换为HSL
+                const hexToHsl = hex => {
+                    let r = parseInt(hex.slice(1, 3), 16) / 255;
+                    let g = parseInt(hex.slice(3, 5), 16) / 255;
+                    let b = parseInt(hex.slice(5, 7), 16) / 255;
+                    
+                    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+                    let h, s, l = (max + min) / 2;
+                    
+                    if (max === min) {
+                        h = s = 0; // achromatic
+                    } else {
+                        let d = max - min;
+                        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                        
+                        switch(max) {
+                            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                            case g: h = (b - r) / d + 2; break;
+                            case b: h = (r - g) / d + 4; break;
+                        }
+                        h /= 6;
+                    }
+                    
+                    return { h: h * 360, s: s * 100, l: l * 100 };
+                };
+                
+                // 将HSL转换为十六进制
+                const hslToHex = (h, s, l) => {
+                    h /= 360;
+                    s /= 100;
+                    l /= 100;
+                    
+                    let r, g, b;
+                    
+                    if (s === 0) {
+                        r = g = b = l; // achromatic
+                    } else {
+                        const hue2rgb = (p, q, t) => {
+                            if (t < 0) t += 1;
+                            if (t > 1) t -= 1;
+                            if (t < 1/6) return p + (q - p) * 6 * t;
+                            if (t < 1/2) return q;
+                            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                            return p;
+                        };
+                        
+                        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                        const p = 2 * l - q;
+                        
+                        r = hue2rgb(p, q, h + 1/3);
+                        g = hue2rgb(p, q, h);
+                        b = hue2rgb(p, q, h - 1/3);
+                    }
+                    
+                    const toHex = x => {
+                        const hex = Math.round(x * 255).toString(16);
+                        return hex.length === 1 ? '0' + hex : hex;
+                    };
+                    
+                    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+                };
+                
+                // 获取基础颜色的HSL值
+                let {h, s, l} = hexToHsl(baseColor);
+                
+                // 限制饱和度和亮度在美观范围内
+                s = Math.max(60, Math.min(90, s));
+                l = Math.max(40, Math.min(80, l));
+                
+                // 在HSL空间中进行更平滑的调整
+                // 色相变化±10度，保持变化方向一致（顺时针）
+                const newH = (h + Math.random() * 10 + 360) % 360;
+                // 饱和度轻微变化±5%
+                const newS = Math.max(60, Math.min(90, s + Math.random() * 10 - 5));
+                // 亮度轻微变化±5% 
+                const newL = Math.max(40, Math.min(80, l + Math.random() * 10 - 5));
+                
+                return hslToHex(newH, newS, newL);
             }
             
             // 导出为PNG
@@ -555,21 +791,108 @@
                 link.click();
             }
             
+            // 保存项目
+            function saveProject() {
+                const project = {
+                    gridSize: gridSize,
+                    pixelSize: pixelSize,
+                    currentColor: currentColor,
+                    canvasData: canvas.toDataURL('image/png'),
+                    paletteColors: paletteColors,
+                    version: 1
+                };
+                
+                const data = JSON.stringify(project);
+                const blob = new Blob([data], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.download = 'pixel-art-project.json';
+                link.href = url;
+                link.click();
+                
+                URL.revokeObjectURL(url);
+            }
+            
+            // 加载项目
+            function loadProject() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                
+                input.onchange = e => {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        try {
+                            const project = JSON.parse(e.target.result);
+                            
+                            // 验证项目文件
+                            if (!project.version || project.version !== 1) {
+                                throw new Error('不兼容的项目文件版本');
+                            }
+                            
+                            // 恢复项目状态
+                            gridSize = project.gridSize;
+                            pixelSize = project.pixelSize;
+                            currentColor = project.currentColor;
+                            paletteColors = project.paletteColors || [];
+                            
+                            // 更新UI
+                            gridSizeSelect.value = gridSize;
+                            pixelSizeSelect.value = pixelSize;
+                            colorPicker.value = currentColor;
+                            
+                            // 恢复画布
+                            const img = new Image();
+                            img.onload = function() {
+                                initCanvas();
+                                ctx.drawImage(img, 0, 0);
+                                generatePalette();
+                                saveState();
+                                updateUndoRedoButtons();
+                            };
+                            img.src = project.canvasData;
+                            
+                        } catch (error) {
+                            alert('加载项目失败: ' + error.message);
+                        }
+                    };
+                    
+                    reader.readAsText(file);
+                };
+                
+                input.click();
+            }
+            
             // 事件监听器
             canvas.addEventListener('mousedown', function(e) {
+                if (e.button !== 0) return; // 只响应左键
                 isDrawing = true;
                 const { x, y } = getGridPosition(e);
+                startX = x;
+                startY = y;
                 
                 if (e.ctrlKey || e.metaKey) {
                     // 按住Ctrl键(Mac上是Command键)进行填充
                     floodFill(x, y, '#ffffff', currentColor);
-                } else if (e.shiftKey) {
-                    // 按住Shift键进行擦除
-                    isErasing = true;
-                    drawPixel(x, y);
-                } else {
-                    // 正常绘制
-                    isErasing = false;
+                    saveState();
+                    isDrawing = false;
+                    return;
+                }
+                
+                // 设置绘制状态
+                isErasing = e.shiftKey;
+                
+                // 如果是渐变模式，初始化随机颜色
+                if (isGradientMode && !isErasing) {
+                    currentColor = getRandomColor();
+                    colorPicker.value = currentColor;
+                }
+                
+                // 绘制起始点
+                if (currentTool === 'pencil') {
                     drawPixel(x, y);
                 }
             });
@@ -577,11 +900,62 @@
             canvas.addEventListener('mousemove', function(e) {
                 if (!isDrawing) return;
                 const { x, y } = getGridPosition(e);
-                drawPixel(x, y);
+                
+                // 临时画布用于预览
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(canvas, 0, 0);
+                
+                switch(currentTool) {
+                    case 'pencil':
+                        if (isGradientMode && !isErasing) {
+                            // 在渐变模式下，每次移动时轻微改变颜色
+                            currentColor = getRandomColor(currentColor);
+                            colorPicker.value = currentColor;
+                        }
+                        drawPixel(x, y);
+                        break;
+                    case 'line':
+                        drawLine(startX, startY, x, y);
+                        break;
+                    case 'rectangle':
+                        if (e.shiftKey) {
+                            // 按住Shift键绘制正方形
+                            const size = Math.max(Math.abs(x - startX), Math.abs(y - startY));
+                            const endX = startX + (x > startX ? size : -size);
+                            const endY = startY + (y > startY ? size : -size);
+                            drawRectangle(startX, startY, endX, endY, !e.altKey);
+                        } else {
+                            drawRectangle(startX, startY, x, y, !e.altKey);
+                        }
+                        break;
+                    case 'circle':
+                        if (e.shiftKey) {
+                            // 按住Shift键绘制正圆
+                            const radius = Math.max(Math.abs(x - startX), Math.abs(y - startY));
+                            const endX = startX + (x > startX ? radius : -radius);
+                            const endY = startY + (y > startY ? radius : -radius);
+                            drawCircle(startX, startY, endX, endY, !e.altKey);
+                        } else {
+                            drawCircle(startX, startY, x, y, !e.altKey);
+                        }
+                        break;
+                }
             });
             
             canvas.addEventListener('mouseup', function() {
+                if (isDrawing) {
+                    saveState();
+                    updateUndoRedoButtons();
+                }
                 isDrawing = false;
+            });
+            
+            // 工具选择变化
+            document.getElementById('drawingTool').addEventListener('change', function() {
+                currentTool = this.value;
             });
             
             canvas.addEventListener('mouseleave', function() {
@@ -597,6 +971,13 @@
             randomColorBtn.addEventListener('click', function() {
                 currentColor = getRandomColor();
                 colorPicker.value = currentColor;
+            });
+
+            // 渐变模式按钮
+            const gradientModeBtn = document.getElementById('gradientMode');
+            gradientModeBtn.addEventListener('click', function() {
+                isGradientMode = !isGradientMode;
+                this.style.backgroundColor = isGradientMode ? '#2980b9' : '#3498db';
             });
             
             templateSelect.addEventListener('change', function() {
@@ -616,8 +997,88 @@
             clearCanvasBtn.addEventListener('click', drawGrid);
             exportPNGBtn.addEventListener('click', exportToPNG);
             
+            // 项目保存/加载
+            const saveProjectBtn = document.getElementById('saveProject');
+            const loadProjectBtn = document.getElementById('loadProject');
+            
+            saveProjectBtn.addEventListener('click', saveProject);
+            loadProjectBtn.addEventListener('click', loadProject);
+            
+            // 撤销/重做按钮
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            
+            undoBtn.addEventListener('click', undo);
+            redoBtn.addEventListener('click', redo);
+            
+            // 更新按钮状态
+            function updateUndoRedoButtons() {
+                undoBtn.disabled = historyStack.length === 0;
+                redoBtn.disabled = redoStack.length === 0;
+            }
+            
+            // 键盘事件监听
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.key === 'z') {
+                        undo();
+                        e.preventDefault();
+                    } else if (e.key === 'y') {
+                        redo();
+                        e.preventDefault();
+                    }
+                }
+            });
+            
+            // 生成调色板
+            function generatePalette() {
+                const palette = document.getElementById('colorPalette');
+                palette.innerHTML = '';
+                
+                paletteColors.forEach((color, index) => {
+                    const colorDiv = document.createElement('div');
+                    colorDiv.className = 'palette-color';
+                    colorDiv.style.backgroundColor = color;
+                    colorDiv.title = color;
+                    colorDiv.style.width = '20px';
+                    colorDiv.style.height = '20px';
+                    colorDiv.style.display = 'inline-block';
+                    colorDiv.style.margin = '2px';
+                    colorDiv.style.cursor = 'pointer';
+                    colorDiv.style.border = '1px solid #ddd';
+                    
+                    colorDiv.addEventListener('click', function() {
+                        currentColor = color;
+                        colorPicker.value = color;
+                    });
+                    
+                    // 右键删除颜色
+                    colorDiv.addEventListener('contextmenu', function(e) {
+                        e.preventDefault();
+                        paletteColors.splice(index, 1);
+                        localStorage.setItem('paletteColors', JSON.stringify(paletteColors));
+                        generatePalette();
+                    });
+                    
+                    palette.appendChild(colorDiv);
+                });
+            }
+            
+            // 保存当前颜色到调色板
+            document.getElementById('saveColorBtn').addEventListener('click', function() {
+                const color = colorPicker.value;
+                if (!paletteColors.includes(color)) {
+                    paletteColors.push(color);
+                    localStorage.setItem('paletteColors', JSON.stringify(paletteColors));
+                    generatePalette();
+                }
+            });
+            
             // 初始化
             initCanvas();
+            generatePalette();
+            updateUndoRedoButtons();
+            saveState(); // 保存初始状态
         });
     </script>
 </body>
