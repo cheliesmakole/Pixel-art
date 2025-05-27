@@ -3,46 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>像素艺术生成器</title>
+    <title>像素艺术生成器 - 泰拉瑞亚风格</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Press Start 2P', cursive;
             margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            color: #333;
+            padding: 0;
+            background-color: #1a1a2e;
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 0, 0, 0.3) 1px, transparent 1px);
+            background-size: 20px 20px;
+            color: #e0e0e0;
+            overflow-x: hidden;
         }
         
         .container {
-            max-width: 100%-200px;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-width: 100%;
+            background-color: rgba(26, 26, 46, 0.8);
+            padding: 15px;
             display: flex;
             gap: 20px;
-        
+            position: relative;
         }
 
         .main-content {
             flex: 1;
-            margin-right: 280px; /* 180px + 20px*2 */
+            margin-right: 280px;
+            background-color: rgba(40, 40, 80, 0.7);
+            border: 4px solid #5a3921;
+            border-image: 
+                linear-gradient(
+                    to bottom right,
+                    #5a3921 0%,
+                    #8b5a2b 25%,
+                    #5a3921 50%,
+                    #8b5a2b 75%,
+                    #5a3921 100%
+                ) 1;
+            box-shadow: 
+                0 0 10px rgba(0, 0, 0, 0.5),
+                inset 0 0 20px rgba(0, 0, 0, 0.3);
+            padding: 15px;
         }
         
         h1 {
             text-align: center;
-            color: #2c3e50;
+            color: #ff9933;
+            text-shadow: 
+                2px 2px 0 #8b5a2b,
+                4px 4px 0 #5a3921;
+            margin-bottom: 20px;
+            font-size: 28px;
+            letter-spacing: 2px;
         }
         
         .controls {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 15px;
             width: min-content;
-            min-width: 180px;
-            padding: 10px;
-            background-color: #ecf0f1;
-            border-radius: 5px;
+            min-width: 200px;
+            padding: 15px;
+            background-color: #2d1a12;
+            border: 4px solid #5a3921;
+            border-image: 
+                linear-gradient(
+                    to bottom right,
+                    #5a3921 0%,
+                    #8b5a2b 25%,
+                    #5a3921 50%,
+                    #8b5a2b 75%,
+                    #5a3921 100%
+                ) 1;
+            box-shadow: 
+                0 0 10px rgba(0, 0, 0, 0.5),
+                inset 0 0 20px rgba(0, 0, 0, 0.3);
             position: fixed;
             right: 20px;
             top: 20px;
@@ -54,30 +92,135 @@
         .control-group {
             display: flex;
             flex-direction: column;
-            min-width: 150px;
+            min-width: 170px;
+            background-color: rgba(90, 58, 33, 0.5);
+            padding: 10px;
+            border: 2px solid #8b5a2b;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+                /* 文件上传样式 */
+        .file-upload-wrapper {
+            margin-top: 10px;
+        }
+
+        .custom-file-upload {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        .custom-file-upload input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .custom-file-upload span {
+            display: block;
+            padding: 8px;
+            border: 2px solid #5a3921;
+            border-radius: 0;
+            background-color: #2d1a12;
+            color: #ffcc99;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            text-align: center;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .custom-file-upload span:hover {
+            background-color: #8b5a2b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 0 #5a3921;
+        }
+
+        .custom-file-upload span:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 0 #5a3921;
+        }
+
+        .custom-file-upload span::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: all 0.5s;
+        }
+
+        .custom-file-upload span:hover::before {
+            left: 100%;
         }
         
         label {
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 8px;
+            color: #ffcc99;
+            font-size: 12px;
+            text-shadow: 1px 1px 0 #5a3921;
         }
         
-        input, select, button {
+        select, input, button {
             padding: 8px;
-            border: 1px solid #bdc3c7;
-            border-radius: 4px;
+            border: 2px solid #5a3921;
+            border-radius: 0;
+            background-color: #2d1a12;
+            color: #ffcc99;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+            transition: all 0.2s;
+        }
+        
+        select:focus, input:focus, button:focus {
+            outline: none;
+            border-color: #ff9933;
         }
         
         button {
-            background-color: #3498db;
-            color: white;
+            background-color: #5a3921;
+            color: #ffcc99;
             cursor: pointer;
-            transition: background-color 0.3s;
-            border: none;
+            transition: all 0.2s;
+            text-shadow: 1px 1px 0 #2d1a12;
+            position: relative;
+            overflow: hidden;
         }
         
         button:hover {
-            background-color: #2980b9;
+            background-color: #8b5a2b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 0 #5a3921;
+        }
+        
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 0 #5a3921;
+        }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: all 0.5s;
+        }
+        
+        button:hover::before {
+            left: 100%;
         }
         
         .color-picker {
@@ -87,10 +230,11 @@
         }
         
         #color {
-            width: 50px;
+            width: 60px;
             height: 30px;
             padding: 0;
-            border: 1px solid #bdc3c7;
+            border: 2px solid #5a3921;
+            cursor: pointer;
         }
         
         .canvas-container {
@@ -98,19 +242,31 @@
             justify-content: center;
             margin-bottom: 20px;
             overflow: auto;
+            background-color: #1a1a2e;
+            border: 4px solid #5a3921;
+            padding: 10px;
+            box-shadow: 
+                inset 0 0 20px rgba(0, 0, 0, 0.5),
+                0 0 10px rgba(0, 0, 0, 0.7);
         }
         
         #pixelCanvas {
-            border: 1px solid #bdc3c7;
+            border: 2px solid #5a3921;
             background-color: white;
-            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 5; /* 确保画布在最上层 */
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            image-rendering: pixelated;
         }
         
         .template-preview {
-            display: flex;
+            display: none;
             flex-wrap: wrap;
             gap: 10px;
-            margin-top: 10px;
+            margin-top: 15px;
+            background-color: rgba(90, 58, 33, 0.3);
+            padding: 10px;
+            border: 2px solid #5a3921;
         }
         
         .template {
@@ -118,33 +274,179 @@
             height: 50px;
             border: 2px solid transparent;
             cursor: pointer;
+            transition: all 0.2s;
+            background-color: #2d1a12;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
         }
         
         .template:hover {
-            border-color: #3498db;
+            border-color: #ff9933;
+            transform: scale(1.05);
         }
         
         .tools {
             display: flex;
             gap: 10px;
-            margin-top: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
         }
         
         .tool-btn {
             flex: 1;
+            min-width: 100px;
+            background-color: #5a3921;
+            color: #ffcc99;
+            border: 2px solid #8b5a2b;
+            padding: 10px;
+            font-size: 10px;
+        }
+        
+        .tool-btn:hover {
+            background-color: #8b5a2b;
         }
         
         .template-import {
-            margin-top: 10px;
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
         }
-        
+
+        .template-import label {
+            margin-bottom: 0;
+            font-size: 10px;
+            color: #ffcc99;
+        }
         .eraser-active {
             background-color: #e74c3c !important;
+            color: white !important;
+        }
+        
+        .palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .palette-color {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #5a3921;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .palette-color:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 5px white;
+        }
+        
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #2d1a12;
+            border-left: 1px solid #5a3921;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #5a3921;
+            border: 1px solid #8b5a2b;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8b5a2b;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .main-content {
+                margin-right: 0;
+                margin-bottom: 20px;
+            }
+            
+            .controls {
+                position: static;
+                width: auto;
+                height: auto;
+                margin-top: 20px;
+            }
+        }
+        
+        /* 像素化标题装饰 */
+        .title-decoration {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .pixel {
+            width: 10px;
+            height: 10px;
+            margin: 2px;
+        }
+        
+        .pixel-orange {
+            background-color: #ff9933;
+        }
+        
+        .pixel-brown {
+            background-color: #5a3921;
+        }
+        
+        .pixel-gold {
+            background-color: #ffcc66;
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="main-content">
+            <div class="title-decoration">
+                <div class="pixel pixel-brown"></div>
+                <div class="pixel pixel-orange"></div>
+                <div class="pixel pixel-gold"></div>
+                <div class="pixel pixel-orange"></div>
+                <div class="pixel pixel-brown"></div>
+            </div>
+            
+            <h1>像素艺术生成器</h1>
+            
+            <div class="title-decoration">
+                <div class="pixel pixel-brown"></div>
+                <div class="pixel pixel-orange"></div>
+                <div class="pixel pixel-gold"></div>
+                <div class="pixel pixel-orange"></div>
+                <div class="pixel pixel-brown"></div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="pixelCanvas"></canvas>
+            </div>
+            
+            <div class="tools">
+                <button id="undoBtn" class="tool-btn" title="撤销 (Ctrl+Z)">撤销</button>
+                <button id="redoBtn" class="tool-btn" title="重做 (Ctrl+Y)">重做</button>
+                <button id="clearCanvas" class="tool-btn">清空画布</button>
+                <button id="saveProject" class="tool-btn">保存项目</button>
+                <button id="loadProject" class="tool-btn">加载项目</button>
+                <button id="exportPNG" class="tool-btn">导出PNG</button>
+            </div>
+            
+            <div class="template-preview" id="templatePreviews">
+                <!-- 模板预览将在这里动态生成 -->
+            </div>
+        </div>
+        
         <div class="controls">
             <div class="control-group">
                 <label>绘图工具</label>
@@ -206,33 +508,17 @@
                     <option value="tree">圣诞树</option>
                     <option value="cat">猫咪</option>
                 </select>
-                <div class="template-import">
+                <div class="file-upload-wrapper">
                     <label for="imageUpload">或导入图片</label>
-                    <input type="file" id="imageUpload" accept="image/*">
+                    <div class="custom-file-upload">
+                        <input type="file" id="imageUpload" accept="image/*">
+                        <span>选择文件</span>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <div class="main-content">
-            <h1>像素艺术生成器</h1>
-            
-            <div class="canvas-container">
-                <canvas id="pixelCanvas"></canvas>
-            </div>
-            
-            <div class="tools">
-            <button id="undoBtn" class="tool-btn" title="撤销 (Ctrl+Z)">↩️ 撤销</button>
-            <button id="redoBtn" class="tool-btn" title="重做 (Ctrl+Y)">↪️ 重做</button>
-            <button id="clearCanvas" class="tool-btn">清空画布</button>
-            <button id="saveProject" class="tool-btn">保存项目</button>
-            <button id="loadProject" class="tool-btn">加载项目</button>
-            <button id="exportPNG" class="tool-btn">导出PNG</button>
-        </div>
-        
-        <div class="template-preview" id="templatePreviews">
-            <!-- 模板预览将在这里动态生成 -->
-        </div>
     </div>
+
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
