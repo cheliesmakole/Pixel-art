@@ -137,6 +137,10 @@
         .template-import {
             margin-top: 10px;
         }
+        
+        .eraser-active {
+            background-color: #e74c3c !important;
+        }
     </style>
 </head>
 <body>
@@ -146,6 +150,7 @@
                 <label>绘图工具</label>
                 <select id="drawingTool">
                     <option value="pencil" selected>铅笔</option>
+                    <option value="eraser">橡皮擦</option>
                     <option value="line">直线</option>
                     <option value="rectangle">矩形</option>
                     <option value="circle">圆形</option>
@@ -167,12 +172,15 @@
                     <option value="32" selected>32×32 (头像)</option>
                     <option value="64">64×64</option>
                     <option value="128">128×128</option>
+                    <option value="256">256×256</option>
+                    <option value="512">512×512</option>
                 </select>
             </div>
             
             <div class="control-group">
                 <label for="pixelSize">像素大小</label>
                 <select id="pixelSize">
+                    <option value="5">5px</option>
                     <option value="10">10px</option>
                     <option value="15" selected>15px</option>
                     <option value="20">20px</option>
@@ -240,13 +248,13 @@
             const clearCanvasBtn = document.getElementById('clearCanvas');
             const exportPNGBtn = document.getElementById('exportPNG');
             const templatePreviews = document.getElementById('templatePreviews');
+            const drawingToolSelect = document.getElementById('drawingTool');
             
             // 初始化变量
             let gridSize = parseInt(gridSizeSelect.value);
             let pixelSize = parseInt(pixelSizeSelect.value);
             let currentColor = colorPicker.value;
             let isDrawing = false;
-            let isErasing = false;
             let isGradientMode = false;
             let currentTool = 'pencil';
             let startX, startY;
@@ -338,6 +346,17 @@
                 gridSize = parseInt(gridSizeSelect.value);
                 pixelSize = parseInt(pixelSizeSelect.value);
                 
+                // 限制画布大小以避免性能问题
+                const maxCanvasSize = 1024 * 4; // 4MB
+                const requiredSize = gridSize * pixelSize;
+                
+                if (requiredSize > maxCanvasSize) {
+                    // 自动调整像素大小以适应最大尺寸
+                    pixelSize = Math.floor(maxCanvasSize / gridSize);
+                    pixelSizeSelect.value = pixelSize;
+                    alert(`画布太大，已自动调整像素大小为${pixelSize}px以保持性能`);
+                }
+                
                 canvas.width = gridSize * pixelSize;
                 canvas.height = gridSize * pixelSize;
                 
@@ -414,9 +433,9 @@
                 // 清空画布
                 drawGrid();
                 
-            // 保存状态
-            saveState();
-            updateUndoRedoButtons();
+                // 保存状态
+                saveState();
+                updateUndoRedoButtons();
                 
                 // 绘制模板
                 for (let y = 0; y < template.data.length; y++) {
@@ -500,8 +519,8 @@
             // 获取鼠标位置对应的网格坐标
             function getGridPosition(event) {
                 const rect = canvas.getBoundingClientRect();
-                const x = Math.floor((event.clientX - rect.left) / pixelSize/scaleFactor);
-                const y = Math.floor((event.clientY - rect.top) / pixelSize/scaleFactor);
+                const x = Math.floor((event.clientX - rect.left) / pixelSize);
+                const y = Math.floor((event.clientY - rect.top) / pixelSize);
                 
                 return { 
                     x: Math.max(0, Math.min(x, gridSize - 1)),
@@ -621,7 +640,11 @@
             
             // 绘制像素
             function drawPixel(x, y) {
-                ctx.fillStyle = isErasing ? '#ffffff' : currentColor;
+                if (currentTool === 'eraser') {
+                    ctx.fillStyle = '#ffffff'; // 橡皮擦使用白色
+                } else {
+                    ctx.fillStyle = currentColor;
+                }
                 ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
                 
                 // 重新绘制网格线
@@ -851,256 +874,281 @@
                                 initCanvas();
                                 ctx.drawImage(img, 0, 0);
                                 generatePalette();
-                                saveState();
-                                updateUndoRedoButtons();
-                            };
-                            img.src = project.canvasData;
-                            
-                        } catch (error) {
-                            alert('加载项目失败: ' + error.message);
-                        }
-                    };
-                    
-                    reader.readAsText(file);
+                            saveState();
+                            updateUndoRedoButtons();
+                        };
+                        img.src = project.canvasData;
+                        
+                    } catch (error) {
+                        alert('加载项目失败: ' + error.message);
+                    }
                 };
                 
-                input.click();
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+        
+        // 事件监听器
+        canvas.addEventListener('mousedown', function(e) {
+            if (e.button !== 0) return; // 只响应左键
+            isDrawing = true;
+            const { x, y } = getGridPosition(e);
+            startX = x;
+            startY = y;
+            
+            if (e.ctrlKey || e.metaKey) {
+                // 按住Ctrl键(Mac上是Command键)进行填充
+                floodFill(x, y, '#ffffff', currentColor);
+                saveState();
+                isDrawing = false;
+                return;
             }
             
-            // 事件监听器
-            canvas.addEventListener('mousedown', function(e) {
-                if (e.button !== 0) return; // 只响应左键
-                isDrawing = true;
-                const { x, y } = getGridPosition(e);
-                startX = x;
-                startY = y;
-                
-                if (e.ctrlKey || e.metaKey) {
-                    // 按住Ctrl键(Mac上是Command键)进行填充
-                    floodFill(x, y, '#ffffff', currentColor);
-                    saveState();
-                    isDrawing = false;
-                    return;
-                }
-                
-                // 设置绘制状态
-                isErasing = e.shiftKey;
-                
-                // 如果是渐变模式，初始化随机颜色
-                if (isGradientMode && !isErasing) {
-                    currentColor = getRandomColor();
-                    colorPicker.value = currentColor;
-                }
-                
-                // 绘制起始点
-                if (currentTool === 'pencil') {
-                    drawPixel(x, y);
-                }
-            });
-            
-            canvas.addEventListener('mousemove', function(e) {
-                if (!isDrawing) return;
-                const { x, y } = getGridPosition(e);
-                
-                // 临时画布用于预览
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = canvas.width;
-                tempCanvas.height = canvas.height;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(canvas, 0, 0);
-                
-                switch(currentTool) {
-                    case 'pencil':
-                        if (isGradientMode && !isErasing) {
-                            // 在渐变模式下，每次移动时轻微改变颜色
-                            currentColor = getRandomColor(currentColor);
-                            colorPicker.value = currentColor;
-                        }
-                        drawPixel(x, y);
-                        break;
-                    case 'line':
-                        drawLine(startX, startY, x, y);
-                        break;
-                    case 'rectangle':
-                        if (e.shiftKey) {
-                            // 按住Shift键绘制正方形
-                            const size = Math.max(Math.abs(x - startX), Math.abs(y - startY));
-                            const endX = startX + (x > startX ? size : -size);
-                            const endY = startY + (y > startY ? size : -size);
-                            drawRectangle(startX, startY, endX, endY, !e.altKey);
-                        } else {
-                            drawRectangle(startX, startY, x, y, !e.altKey);
-                        }
-                        break;
-                    case 'circle':
-                        if (e.shiftKey) {
-                            // 按住Shift键绘制正圆
-                            const radius = Math.max(Math.abs(x - startX), Math.abs(y - startY));
-                            const endX = startX + (x > startX ? radius : -radius);
-                            const endY = startY + (y > startY ? radius : -radius);
-                            drawCircle(startX, startY, endX, endY, !e.altKey);
-                        } else {
-                            drawCircle(startX, startY, x, y, !e.altKey);
-                        }
-                        break;
-                }
-            });
-            
-            canvas.addEventListener('mouseup', function() {
-                if (isDrawing) {
-                    saveState();
-                    updateUndoRedoButtons();
-                }
-                isDrawing = false;
-            });
-            
-            // 工具选择变化
-            document.getElementById('drawingTool').addEventListener('change', function() {
-                currentTool = this.value;
-            });
-            
-            canvas.addEventListener('mouseleave', function() {
-                isDrawing = false;
-            });
-            
-            gridSizeSelect.addEventListener('change', initCanvas);
-            pixelSizeSelect.addEventListener('change', initCanvas);
-            colorPicker.addEventListener('input', function() {
-                currentColor = this.value;
-            });
-            
-            randomColorBtn.addEventListener('click', function() {
+            // 如果是渐变模式，初始化随机颜色
+            if (isGradientMode && currentTool !== 'eraser') {
                 currentColor = getRandomColor();
                 colorPicker.value = currentColor;
-            });
-
-            // 渐变模式按钮
-            const gradientModeBtn = document.getElementById('gradientMode');
-            gradientModeBtn.addEventListener('click', function() {
-                isGradientMode = !isGradientMode;
-                this.style.backgroundColor = isGradientMode ? '#2980b9' : '#3498db';
-            });
-            
-            templateSelect.addEventListener('change', function() {
-                if (this.value) {
-                    applyTemplate(this.value);
-                    this.value = '';
-                }
-            });
-            
-            imageUpload.addEventListener('change', function() {
-                if (this.files && this.files[0]) {
-                    importImage(this.files[0]);
-                    this.value = ''; // 清除选择，以便可以重复选择同一文件
-                }
-            });
-            
-            clearCanvasBtn.addEventListener('click', drawGrid);
-            exportPNGBtn.addEventListener('click', exportToPNG);
-            
-            // 项目保存/加载
-            const saveProjectBtn = document.getElementById('saveProject');
-            const loadProjectBtn = document.getElementById('loadProject');
-            
-            saveProjectBtn.addEventListener('click', saveProject);
-            loadProjectBtn.addEventListener('click', loadProject);
-            
-            // 撤销/重做按钮
-            const undoBtn = document.getElementById('undoBtn');
-            const redoBtn = document.getElementById('redoBtn');
-            
-            undoBtn.addEventListener('click', undo);
-            redoBtn.addEventListener('click', redo);
-            
-            // 更新按钮状态
-            function updateUndoRedoButtons() {
-                undoBtn.disabled = historyStack.length === 0;
-                redoBtn.disabled = redoStack.length === 0;
             }
             
-            // 键盘事件监听
-            document.addEventListener('keydown', function(e) {
-                if (e.ctrlKey || e.metaKey) {
-                    if (e.key === 'z') {
-                        undo();
-                        e.preventDefault();
-                    } else if (e.key === 'y') {
-                        redo();
-                        e.preventDefault();
+            // 绘制起始点
+            if (currentTool === 'pencil' || currentTool === 'eraser') {
+                drawPixel(x, y);
+            }
+        });
+        
+        canvas.addEventListener('mousemove', function(e) {
+            if (!isDrawing) return;
+            const { x, y } = getGridPosition(e);
+            
+            // 临时画布用于预览
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(canvas, 0, 0);
+            
+            switch(currentTool) {
+                case 'pencil':
+                    if (isGradientMode) {
+                        // 在渐变模式下，每次移动时轻微改变颜色
+                        currentColor = getRandomColor(currentColor);
+                        colorPicker.value = currentColor;
                     }
-                }
-            });
-            
-            // 生成调色板
-            function generatePalette() {
-                const palette = document.getElementById('colorPalette');
-                palette.innerHTML = '';
-                
-                paletteColors.forEach((color, index) => {
-                    const colorDiv = document.createElement('div');
-                    colorDiv.className = 'palette-color';
-                    colorDiv.style.backgroundColor = color;
-                    colorDiv.title = color;
-                    colorDiv.style.width = '20px';
-                    colorDiv.style.height = '20px';
-                    colorDiv.style.display = 'inline-block';
-                    colorDiv.style.margin = '2px';
-                    colorDiv.style.cursor = 'pointer';
-                    colorDiv.style.border = '1px solid #ddd';
-                    
-                    colorDiv.addEventListener('click', function() {
-                        currentColor = color;
-                        colorPicker.value = color;
-                    });
-                    
-                    // 右键删除颜色
-                    colorDiv.addEventListener('contextmenu', function(e) {
-                        e.preventDefault();
-                        paletteColors.splice(index, 1);
-                        localStorage.setItem('paletteColors', JSON.stringify(paletteColors));
-                        generatePalette();
-                    });
-                    
-                    palette.appendChild(colorDiv);
-                });
+                    drawPixel(x, y);
+                    break;
+                case 'eraser':
+                    drawPixel(x, y);
+                    break;
+                case 'line':
+                    drawLine(startX, startY, x, y);
+                    break;
+                case 'rectangle':
+                    if (e.shiftKey) {
+                        // 按住Shift键绘制正方形
+                        const size = Math.max(Math.abs(x - startX), Math.abs(y - startY));
+                        const endX = startX + (x > startX ? size : -size);
+                        const endY = startY + (y > startY ? size : -size);
+                        drawRectangle(startX, startY, endX, endY, !e.altKey);
+                    } else {
+                        drawRectangle(startX, startY, x, y, !e.altKey);
+                    }
+                    break;
+                case 'circle':
+                    if (e.shiftKey) {
+                        // 按住Shift键绘制正圆
+                        const radius = Math.max(Math.abs(x - startX), Math.abs(y - startY));
+                        const endX = startX + (x > startX ? radius : -radius);
+                        const endY = startY + (y > startY ? radius : -radius);
+                        drawCircle(startX, startY, endX, endY, !e.altKey);
+                    } else {
+                        drawCircle(startX, startY, x, y, !e.altKey);
+                    }
+                    break;
             }
+        });
+        
+        canvas.addEventListener('mouseup', function() {
+            if (isDrawing) {
+                saveState();
+                updateUndoRedoButtons();
+            }
+            isDrawing = false;
+        });
+        
+        // 工具选择变化
+        drawingToolSelect.addEventListener('change', function() {
+            currentTool = this.value;
             
-            // 保存当前颜色到调色板
-            document.getElementById('saveColorBtn').addEventListener('click', function() {
-                const color = colorPicker.value;
-                if (!paletteColors.includes(color)) {
-                    paletteColors.push(color);
-                    localStorage.setItem('paletteColors', JSON.stringify(paletteColors));
-                    generatePalette();
+            // 更新橡皮擦按钮状态
+            const eraserBtn = document.querySelector('option[value="eraser"]');
+            if (eraserBtn) {
+                if (currentTool === 'eraser') {
+                    eraserBtn.classList.add('eraser-active');
+                } else {
+                    eraserBtn.classList.remove('eraser-active');
                 }
-            });
-            
-            // 初始化
-            initCanvas();
-            generatePalette();
-            updateUndoRedoButtons();
-            saveState(); // 保存初始状态
-            let scaleFactor = 1.0; // 初始缩放比例
-       const SCALE_STEP = 0.1; // 每次缩放增量
-       const MIN_SCALE = 0.5;
-       const MAX_SCALE = 4;
-
-         canvas.addEventListener('wheel', function(e) {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault(); // 防止页面缩放
-        if (e.deltaY < 0) {
-            // 放大
-            scaleFactor = Math.min(MAX_SCALE, scaleFactor + SCALE_STEP);
-        } else {
-            // 缩小
-            scaleFactor = Math.max(MIN_SCALE, scaleFactor - SCALE_STEP);
-        }
-        canvas.style.transform = `scale(${scaleFactor})`;
-        canvas.style.transformOrigin = '0 0'; // 从左上角缩放
-    }
-}, { passive: false }); // 必须设置为 false 才能调用 preventDefault
+            }
+        });
+        
+        canvas.addEventListener('mouseleave', function() {
+            isDrawing = false;
+        });
+        
+        gridSizeSelect.addEventListener('change', initCanvas);
+        pixelSizeSelect.addEventListener('change', initCanvas);
+        colorPicker.addEventListener('input', function() {
+            currentColor = this.value;
+        });
+        
+        randomColorBtn.addEventListener('click', function() {
+            currentColor = getRandomColor();
+            colorPicker.value = currentColor;
         });
 
-    </script>
-</body>
-</html>
+        // 渐变模式按钮
+        const gradientModeBtn = document.getElementById('gradientMode');
+        gradientModeBtn.addEventListener('click', function() {
+            isGradientMode = !isGradientMode;
+            this.style.backgroundColor = isGradientMode ? '#2980b9' : '#3498db';
+        });
+        
+        templateSelect.addEventListener('change', function() {
+            if (this.value) {
+                applyTemplate(this.value);
+                this.value = '';
+            }
+        });
+        
+        imageUpload.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                importImage(this.files[0]);
+                this.value = ''; // 清除选择，以便可以重复选择同一文件
+            }
+        });
+        
+        clearCanvasBtn.addEventListener('click', function() {
+            drawGrid();
+            saveState();
+            updateUndoRedoButtons();
+        });
+        
+        exportPNGBtn.addEventListener('click', exportToPNG);
+        
+        // 项目保存/加载
+        const saveProjectBtn = document.getElementById('saveProject');
+        const loadProjectBtn = document.getElementById('loadProject');
+        
+        saveProjectBtn.addEventListener('click', saveProject);
+        loadProjectBtn.addEventListener('click', loadProject);
+        
+        // 撤销/重做按钮
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        
+        undoBtn.addEventListener('click', undo);
+        redoBtn.addEventListener('click', redo);
+        
+        // 更新按钮状态
+        function updateUndoRedoButtons() {
+            undoBtn.disabled = historyStack.length === 0;
+            redoBtn.disabled = redoStack.length === 0;
+        }
+        
+        // 键盘事件监听
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z') {
+                    undo();
+                    e.preventDefault();
+                } else if (e.key === 'y') {
+                    redo();
+                    e.preventDefault();
+                }
+            }
+            
+            // 快速切换工具快捷键
+            if (e.key === 'e') {
+                // 切换到橡皮擦
+                drawingToolSelect.value = 'eraser';
+                drawingToolSelect.dispatchEvent(new Event('change'));
+            } else if (e.key === 'b') {
+                // 切换到铅笔
+                drawingToolSelect.value = 'pencil';
+                drawingToolSelect.dispatchEvent(new Event('change'));
+            }
+        });
+        
+        // 生成调色板
+        function generatePalette() {
+            const palette = document.getElementById('colorPalette');
+            palette.innerHTML = '';
+            
+            paletteColors.forEach((color, index) => {
+                const colorDiv = document.createElement('div');
+                colorDiv.className = 'palette-color';
+                colorDiv.style.backgroundColor = color;
+                colorDiv.title = color;
+                colorDiv.style.width = '20px';
+                colorDiv.style.height = '20px';
+                colorDiv.style.display = 'inline-block';
+                colorDiv.style.margin = '2px';
+                colorDiv.style.cursor = 'pointer';
+                colorDiv.style.border = '1px solid #ddd';
+                
+                colorDiv.addEventListener('click', function() {
+                    currentColor = color;
+                    colorPicker.value = color;
+                });
+                
+                // 右键删除颜色
+                colorDiv.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    paletteColors.splice(index, 1);
+                    localStorage.setItem('paletteColors', JSON.stringify(paletteColors));
+                    generatePalette();
+                });
+                
+                palette.appendChild(colorDiv);
+            });
+        }
+        
+        // 保存当前颜色到调色板
+        document.getElementById('saveColorBtn').addEventListener('click', function() {
+            const color = colorPicker.value;
+            if (!paletteColors.includes(color)) {
+                paletteColors.push(color);
+                localStorage.setItem('paletteColors', JSON.stringify(paletteColors));
+                generatePalette();
+            }
+        });
+        
+        // 初始化
+        initCanvas();
+        generatePalette();
+        updateUndoRedoButtons();
+        saveState(); // 保存初始状态
+        
+        // 添加画布缩放功能
+        let scaleFactor = 1.0; // 初始缩放比例
+        const SCALE_STEP = 0.1; // 每次缩放增量
+        const MIN_SCALE = 0.5;
+        const MAX_SCALE = 4;
+
+        canvas.addEventListener('wheel', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault(); // 防止页面缩放
+                if (e.deltaY < 0) {
+                    // 放大
+                    scaleFactor = Math.min(MAX_SCALE, scaleFactor + SCALE_STEP);
+                } else {
+                    // 缩小
+                    scaleFactor = Math.max(MIN_SCALE, scaleFactor - SCALE_STEP);
+                }
+                canvas.style.transform = `scale(${scaleFactor})`;
+                canvas.style.transformOrigin = '0 0'; // 从左上角缩放
+            }
+        }, { passive: false }); // 必须设置为 false 才能调用 preventDefault
+    });
+</script>
