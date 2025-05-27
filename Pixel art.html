@@ -14,19 +14,19 @@
         }
         
         .container {
-            max-width: 1000px;
-            margin: 0 auto;
+            max-width: 100%-200px;
             background-color: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             display: flex;
             gap: 20px;
+        
         }
 
         .main-content {
             flex: 1;
-            margin-right: 220px; /* 180px + 20px*2 */
+            margin-right: 280px; /* 180px + 20px*2 */
         }
         
         h1 {
@@ -97,6 +97,7 @@
             display: flex;
             justify-content: center;
             margin-bottom: 20px;
+            overflow: auto;
         }
         
         #pixelCanvas {
@@ -499,8 +500,8 @@
             // 获取鼠标位置对应的网格坐标
             function getGridPosition(event) {
                 const rect = canvas.getBoundingClientRect();
-                const x = Math.floor((event.clientX - rect.left) / pixelSize);
-                const y = Math.floor((event.clientY - rect.top) / pixelSize);
+                const x = Math.floor((event.clientX - rect.left) / pixelSize/scaleFactor);
+                const y = Math.floor((event.clientY - rect.top) / pixelSize/scaleFactor);
                 
                 return { 
                     x: Math.max(0, Math.min(x, gridSize - 1)),
@@ -1079,7 +1080,27 @@
             generatePalette();
             updateUndoRedoButtons();
             saveState(); // 保存初始状态
+            let scaleFactor = 1.0; // 初始缩放比例
+       const SCALE_STEP = 0.1; // 每次缩放增量
+       const MIN_SCALE = 0.5;
+       const MAX_SCALE = 4;
+
+         canvas.addEventListener('wheel', function(e) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault(); // 防止页面缩放
+        if (e.deltaY < 0) {
+            // 放大
+            scaleFactor = Math.min(MAX_SCALE, scaleFactor + SCALE_STEP);
+        } else {
+            // 缩小
+            scaleFactor = Math.max(MIN_SCALE, scaleFactor - SCALE_STEP);
+        }
+        canvas.style.transform = `scale(${scaleFactor})`;
+        canvas.style.transformOrigin = '0 0'; // 从左上角缩放
+    }
+}, { passive: false }); // 必须设置为 false 才能调用 preventDefault
         });
+
     </script>
 </body>
 </html>
