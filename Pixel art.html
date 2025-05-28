@@ -406,6 +406,73 @@
         .pixel-gold {
             background-color: #ffcc66;
         }
+
+        /* 时间轴样式 */
+        .timeline-container {
+            height: 80px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .timeline-controls {
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            margin: 10px 20px 0;
+            position: relative;
+        }
+        
+        .frame-numbers {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 15px;
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .frame-number {
+            width: 20px;
+            text-align: center;
+        }
+
+        .playhead {
+            width: 16px;
+            height: 16px;
+            background-color: #3498db;
+            border-radius: 50%;
+            position: absolute;
+            left: 0;
+            top: -4px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: left 0.1s ease;
+        }
+
+        /* 自定义滚动条 */
+        .timeline-scroll::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-thumb {
+            background: #adb5bd;
+            border-radius: 4px;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-thumb:hover {
+            background: #6c757d;
+        }
     </style>
 </head>
 <body>
@@ -508,7 +575,7 @@
                     <option value="tree">圣诞树</option>
                     <option value="cat">猫咪</option>
                 </select>
-                <div class="file-upload-wrapper">
+              
                     <label for="imageUpload">或导入图片</label>
                     <div class="custom-file-upload">
                         <input type="file" id="imageUpload" accept="image/*">
@@ -517,6 +584,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
 
@@ -550,6 +618,13 @@
             const MAX_HISTORY = 50;
             let historyStack = [];
             let redoStack = [];
+            
+            // 动画相关变量
+            let frames = []; // 存储所有帧数据
+            let currentFrameIndex = 0; // 当前帧索引
+            let isPlaying = false; // 是否正在播放动画
+            let animationInterval = null; // 动画定时器
+            let frameRate = 12; // 默认帧率
             
             // 预定义模板
             const templates = {
@@ -651,6 +726,9 @@
                 
                 // 生成模板预览
                 generateTemplatePreviews();
+                
+                // 初始化播放头拖动功能
+                initPlayheadDrag();
             }
             
             // 绘制网格
@@ -837,6 +915,232 @@
                     ctx.drawImage(img, 0, 0);
                 };
                 img.src = state;
+            }
+            
+            // 添加新帧
+            function addFrame() {
+                // 1. 保存当前画布到当前帧
+                frames[currentFrameIndex] = canvas.toDataURL('image/png');
+                
+                // 2. 确保下一帧存在
+                if (currentFrameIndex + 1 >= frames.length) {
+                    frames.push(canvas.toDataURL('image/png'));
+                }
+                
+                // 3. 总是跳转到下一帧
+                switchFrame(currentFrameIndex + 1);
+                
+                // 更新帧列表显示
+                updateFrameList();
+            }
+            
+            // 删除当前帧
+            function deleteFrame() {
+                if (frames.length <= 1) return; // 至少保留一帧
+                
+                frames.splice(currentFrameIndex, 1);
+                
+                // 调整当前帧索引
+                if (currentFrameIndex >= frames.length) {
+                    currentFrameIndex = frames.length - 1;
+                }
+                
+                // 切换到调整后的帧
+                switchFrame(currentFrameIndex);
+                updateFrameList();
+            }
+            
+            // 复制当前帧
+            function copyFrame() {
+                const frameData = canvas.toDataURL('image/png');
+                frames.splice(currentFrameIndex + 1, 0, frameData);
+                currentFrameIndex++;
+                updateFrameList();
+            }
+            
+            // 切换到指定帧
+            function switchFrame(index) {
+                if (index < 0 || index >= frames.length) return;
+                
+                currentFrameIndex = index;
+                const img = new Image();
+                img.onload = function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = frames[index];
+                
+                // 更新帧列表高亮
+                updateFrameList();
+            }
+            
+            // 更新帧列表显示
+            function updateFrameList() {
+                const frameNumbers = document.getElementById('frameNumbers');
+                frameNumbers.innerHTML = '';
+                
+                // 添加帧数标注
+                frames.forEach((frame, index) => {
+                    const frameNumber = document.createElement('div');
+                    frameNumber.className = 'frame-number';
+                    frameNumber.textContent = index + 1;
+                    
+                    // 添加点击事件
+                    frameNumber.addEventListener('click', function() {
+                        switchFrame(index);
+                    });
+                    
+                    frameNumbers.appendChild(frameNumber);
+                    
+                    // 高亮当前帧
+                    if (index === currentFrameIndex) {
+                        frameNumber.style.fontWeight = 'bold';
+                        frameNumber.style.color = '#3498db';
+                    }
+                });
+                
+                // 更新播放头位置
+                updatePlayheadPosition();
+            }
+            
+            // 更新播放头位置
+            function updatePlayheadPosition() {
+                const playhead = document.getElementById('playhead');
+                const frameNumbers = document.getElementById('frameNumbers');
+                const frameNumberElements = frameNumbers.querySelectorAll('.frame-number');
+                
+                if (frameNumberElements.length > 0 && currentFrameIndex < frameNumberElements.length) {
+                    const activeFrame = frameNumberElements[currentFrameIndex];
+                    const frameRect = activeFrame.getBoundingClientRect();
+                    const containerRect = frameNumbers.getBoundingClientRect();
+                    
+                    const position = frameRect.left - containerRect.left + frameRect.width / 2;
+                    playhead.style.left = `${position}px`;
+                }
+            }
+            
+            // 初始化播放头拖动功能
+            function initPlayheadDrag() {
+                const playhead = document.getElementById('playhead');
+                const timelineControls = document.querySelector('.timeline-controls');
+                
+                let isDragging = false;
+                let startX = 0;
+                
+                playhead.addEventListener('mousedown', function(e) {
+                    isDragging = true;
+                    startX = e.clientX - playhead.getBoundingClientRect().left;
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (!isDragging) return;
+                    
+                    const containerRect = timelineControls.getBoundingClientRect();
+                    const mouseX = e.clientX - containerRect.left - startX;
+                    const frameCount = frames.length;
+                    
+                    // 计算播放头位置
+                    let position = Math.max(0, Math.min(mouseX, containerRect.width));
+                    playhead.style.left = `${position}px`;
+                    
+                    if (frameCount > 0) {
+                        const segmentWidth = containerRect.width / frameCount;
+                        const closestIndex = Math.min(Math.round(position / segmentWidth), frameCount - 1);
+                        
+                        // 切换到对应的帧
+                        if (closestIndex !== currentFrameIndex) {
+                            switchFrame(closestIndex);
+                        }
+                    }
+                });
+                
+                document.addEventListener('mouseup', function() {
+                    isDragging = false;
+                });
+                
+                // 点击时间轴直接跳转
+                timelineControls.addEventListener('click', function(e) {
+                    const containerRect = this.getBoundingClientRect();
+                    const clickX = e.clientX - containerRect.left;
+                    const frameCount = frames.length;
+                    
+                    if (frameCount === 0) return;
+                    
+                    const segmentWidth = containerRect.width / frameCount;
+                    const clickedIndex = Math.min(Math.floor(clickX / segmentWidth), frameCount - 1);
+                    
+                    switchFrame(clickedIndex);
+                });
+            }
+            
+            // 播放动画
+            function playAnimation() {
+                if (isPlaying || frames.length <= 1) return;
+                
+                isPlaying = true;
+                document.getElementById('playBtn').textContent = '暂停';
+                
+                // 清除现有定时器
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                }
+                
+                // 设置新定时器
+                animationInterval = setInterval(() => {
+                    currentFrameIndex = (currentFrameIndex + 1) % frames.length;
+                    switchFrame(currentFrameIndex);
+                }, 1000 / frameRate);
+            }
+            
+            // 暂停动画
+            function pauseAnimation() {
+                if (!isPlaying) return;
+                
+                isPlaying = false;
+                document.getElementById('playBtn').textContent = '播放';
+                
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                }
+            }
+            
+            // 停止动画
+            function stopAnimation() {
+                isPlaying = false;
+                document.getElementById('playBtn').textContent = '播放';
+                
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                }
+                
+                // 回到第一帧
+                if (frames.length > 0) {
+                    currentFrameIndex = 0;
+                    switchFrame(0);
+                }
+            }
+            
+            // 下一帧
+            function nextFrame() {
+                if (isPlaying) pauseAnimation();
+                
+                if (frames.length > 0) {
+                    currentFrameIndex = (currentFrameIndex + 1) % frames.length;
+                    switchFrame(currentFrameIndex);
+                }
+            }
+            
+            // 上一帧
+            function prevFrame() {
+                if (isPlaying) pauseAnimation();
+                
+                if (frames.length > 0) {
+                    currentFrameIndex = (currentFrameIndex - 1 + frames.length) % frames.length;
+                    switchFrame(currentFrameIndex);
+                }
             }
             
             // 撤销操作
@@ -1398,29 +1702,7 @@
                 
                 palette.appendChild(colorDiv);
             });
-        }
-        
-        // 保存当前颜色到调色板
-        document.getElementById('saveColorBtn').addEventListener('click', function() {
-            const color = colorPicker.value;
-            if (!paletteColors.includes(color)) {
-                paletteColors.push(color);
-                localStorage.setItem('paletteColors', JSON.stringify(paletteColors));
-                generatePalette();
-            }
-        });
-        
-        // 初始化
-        initCanvas();
-        generatePalette();
-        updateUndoRedoButtons();
-        saveState(); // 保存初始状态
-        
-        // 添加画布缩放功能
-        let scaleFactor = 1.0; // 初始缩放比例
-        const SCALE_STEP = 0.1; // 每次缩放增量
-        const MIN_SCALE = 0.5;
-        const MAX_SCALE = 4;
+
 
         canvas.addEventListener('wheel', function(e) {
             if (e.ctrlKey || e.metaKey) {
