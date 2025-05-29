@@ -613,6 +613,12 @@
             let currentTool = 'pencil';
             let startX, startY;
             let paletteColors = JSON.parse(localStorage.getItem('paletteColors')) || [];
+
+            let scaleFactor = 1;
+            const MAX_SCALE = 3;
+            const MIN_SCALE = 0.5;
+            const SCALE_STEP = 0.1;
+
             
             // 撤销/重做历史记录
             const MAX_HISTORY = 50;
@@ -882,15 +888,15 @@
             
             // 获取鼠标位置对应的网格坐标
             function getGridPosition(event) {
-                const rect = canvas.getBoundingClientRect();
-                const x = Math.floor((event.clientX - rect.left) / pixelSize/scaleFactor);
-                const y = Math.floor((event.clientY - rect.top) / pixelSize/scaleFactor);
-                
-                return { 
-                    x: Math.max(0, Math.min(x, gridSize - 1)),
-                    y: Math.max(0, Math.min(y, gridSize - 1))
-                };
-            }
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((event.clientX - rect.left) / (pixelSize * scaleFactor));
+    const y = Math.floor((event.clientY - rect.top) / (pixelSize * scaleFactor));
+    
+    return { 
+        x: Math.max(0, Math.min(x, gridSize - 1)),
+        y: Math.max(0, Math.min(y, gridSize - 1))
+    };
+}
             
             // 保存当前画布状态
             function saveState() {
@@ -1718,5 +1724,6 @@
                 canvas.style.transformOrigin = '0 0'; // 从左上角缩放
             }
         }, { passive: false }); // 必须设置为 false 才能调用 preventDefault
-    });
+    }
+});
 </script>
