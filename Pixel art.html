@@ -406,6 +406,190 @@
         .pixel-gold {
             background-color: #ffcc66;
         }
+
+        /* 动画控制样式 */
+        .animation-buttons {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .animation-buttons button {
+            flex: 1;
+            padding: 8px;
+            font-size: 10px;
+        }
+
+        .animation-settings {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .animation-settings input[type="range"] {
+            flex: 1;
+        }
+
+        .animation-settings span {
+            font-size: 10px;
+            color: #ffcc99;
+        }
+
+        .frames-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 5px;
+            background-color: rgba(90, 58, 33, 0.3);
+            border: 2px solid #5a3921;
+        }
+
+        .frame-preview {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            border: 2px solid #5a3921;
+            background-color: #2d1a12;
+        }
+
+        .frame-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .frame-preview span {
+            position: absolute;
+            bottom: -15px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 8px;
+            color: #ffcc99;
+        }
+    </style>
+    
+    <!-- 更新进度条样式 -->
+    <style>
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: rgba(90, 58, 33, 0.3);
+            border: 2px solid #5a3921;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 20px;
+            -webkit-appearance: none;
+            background-color: #2d1a12;
+            border: 2px solid #5a3921;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .progress-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 20px;
+            background: #ff9933;
+            border: 2px solid #5a3921;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .progress-bar::-moz-range-thumb {
+            width: 15px;
+            height: 20px;
+            background: #ff9933;
+            border: 2px solid #5a3921;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #ffcc99;
+            text-shadow: 1px 1px 0 #5a3921;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        @media (max-width: 1200px) {
+            .progress-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .progress-text {
+                text-align: center;
+                margin-top: 5px;
+            }
+        }
+    </style>
+    
+    <!-- 进度条样式 -->
+    <style>
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: rgba(90, 58, 33, 0.3);
+            border: 2px solid #5a3921;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 20px;
+            background-color: #2d1a12;
+            border: 2px solid #5a3921;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(
+                to right,
+                #5a3921 0%,
+                #8b5a2b 50%,
+                #ff9933 100%
+            );
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #ffcc99;
+            text-shadow: 1px 1px 0 #5a3921;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        @media (max-width: 1200px) {
+            .progress-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .progress-text {
+                text-align: center;
+                margin-top: 5px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -429,10 +613,15 @@
                 <div class="pixel pixel-brown"></div>
             </div>
             
-            <div class="canvas-container">
+            <div class="canvas-container" style="display: flex; flex-direction: column; align-items: center;">
                 <canvas id="pixelCanvas"></canvas>
+                <!-- 可交互进度条 - 放在画布下方 -->
+                <div class="progress-container" style="width: 90%; margin-top: 10px; margin-left: auto; margin-right: auto;">
+                    <input type="range" id="frameProgress" min="1" max="1" value="1" class="progress-bar" style="width: 100%;">
+                    <span class="progress-text">帧: <span id="currentFrame">1</span>/<span id="totalFrames">1</span></span>
+                </div>
             </div>
-            
+
             <div class="tools">
                 <button id="undoBtn" class="tool-btn" title="撤销 (Ctrl+Z)">撤销</button>
                 <button id="redoBtn" class="tool-btn" title="重做 (Ctrl+Y)">重做</button>
@@ -1328,6 +1517,26 @@
         
         saveProjectBtn.addEventListener('click', saveProject);
         loadProjectBtn.addEventListener('click', loadProject);
+
+        // 动画控制
+        const animationControls = document.createElement('div');
+        animationControls.className = 'control-group';
+        animationControls.innerHTML = `
+            <h3>动画控制</h3>
+            <div class="animation-buttons">
+                <button id="addFrame">添加帧</button>
+                <button id="deleteFrame">删除帧</button>
+                <button id="copyFrame">复制帧</button>
+                <button id="playAnimation">播放</button>
+                <button id="stopAnimation">停止</button>
+            </div>
+            <div class="animation-settings">
+                <label>帧率: <input type="range" id="frameRate" min="1" max="30" value="12"></label>
+                <span id="frameRateValue">12 FPS</span>
+            </div>
+            <div class="frames-preview" id="framesPreview"></div>
+        `;
+        document.querySelector('.controls').appendChild(animationControls);
         
         // 撤销/重做按钮
         const undoBtn = document.getElementById('undoBtn');
@@ -1342,29 +1551,155 @@
             redoBtn.disabled = redoStack.length === 0;
         }
         
-        // 键盘事件监听
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'z') {
-                    undo();
-                    e.preventDefault();
-                } else if (e.key === 'y') {
-                    redo();
-                    e.preventDefault();
+            // 键盘事件监听
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.key === 'z') {
+                        undo();
+                        e.preventDefault();
+                    } else if (e.key === 'y') {
+                        redo();
+                        e.preventDefault();
+                    }
                 }
-            }
+                
+                // 快速切换工具快捷键
+                if (e.key === 'e') {
+                    // 切换到橡皮擦
+                    drawingToolSelect.value = 'eraser';
+                    drawingToolSelect.dispatchEvent(new Event('change'));
+                } else if (e.key === 'b') {
+                    // 切换到铅笔
+                    drawingToolSelect.value = 'pencil';
+                    drawingToolSelect.dispatchEvent(new Event('change'));
+                }
+            });
+
+            // 动画管理器
+            const animationManager = {
+                frames: [],
+                isPlaying: false,
+                frameRate: 12,
+                currentFrameIndex: 0,
+                animationInterval: null,
+                selectedFrameIndex: -1,
+                
+                addFrame: function() {
+                    const frameData = canvas.toDataURL('image/png');
+                    this.frames.push(frameData);
+                    this.selectedFrameIndex = this.frames.length - 1;
+                    this.updateFramesPreview();
+                },
+                
+                deleteFrame: function(index) {
+                    if (index >= 0 && index < this.frames.length) {
+                        this.frames.splice(index, 1);
+                        if (this.selectedFrameIndex >= this.frames.length) {
+                            this.selectedFrameIndex = this.frames.length - 1;
+                        }
+                        this.updateFramesPreview();
+                    }
+                },
+                
+                copyFrame: function(index) {
+                    if (index >= 0 && index < this.frames.length) {
+                        this.frames.splice(index + 1, 0, this.frames[index]);
+                        this.selectedFrameIndex = index + 1;
+                        this.updateFramesPreview();
+                    }
+                },
+                
+                play: function() {
+                    if (this.frames.length === 0) return;
+                    
+                    this.isPlaying = true;
+                    this.currentFrameIndex = 0;
+                    this.playNextFrame();
+                },
+                
+                playNextFrame: function() {
+                    if (!this.isPlaying) return;
+                    
+                    const frame = this.frames[this.currentFrameIndex];
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        
+                        this.currentFrameIndex++;
+                        if (this.currentFrameIndex >= this.frames.length) {
+                            this.currentFrameIndex = 0;
+                        }
+                        
+                        const delay = 1000 / this.frameRate;
+                        this.animationInterval = setTimeout(() => this.playNextFrame(), delay);
+                    };
+                    img.src = frame;
+                },
+                
+                stop: function() {
+                    this.isPlaying = false;
+                    clearTimeout(this.animationInterval);
+                },
+                
+                updateFramesPreview: function() {
+                    const previewContainer = document.getElementById('framesPreview');
+                    previewContainer.innerHTML = '';
+                    
+                    this.frames.forEach((frame, index) => {
+                        const framePreview = document.createElement('div');
+                        framePreview.className = 'frame-preview';
+                        framePreview.innerHTML = `
+                            <img src="${frame}" width="50" height="50">
+                            <span>${index + 1}</span>
+                        `;
+                        previewContainer.appendChild(framePreview);
+                    });
+                },
+                
+                setFrameRate: function(rate) {
+                    this.frameRate = rate;
+                    document.getElementById('frameRateValue').textContent = `${rate} FPS`;
+                },
+                
+                updateProgressBar: function() {
+                    const progressBar = document.getElementById('frameProgress');
+                    const currentFrameEl = document.getElementById('currentFrame');
+                    const totalFramesEl = document.getElementById('totalFrames');
+                    
+                    const totalFrames = this.frames.length;
+                    totalFramesEl.textContent = totalFrames;
+                    progressBar.max = Math.max(1, totalFrames);
+                    
+                    if (totalFrames > 0) {
+                        progressBar.value = this.selectedFrameIndex + 1;
+                        currentFrameEl.textContent = progressBar.value;
+                    } else {
+                        progressBar.value = 1;
+                        currentFrameEl.textContent = '1';
+                    }
+                },
+                
+                showFrame: function(index) {
+                    if (index >= 0 && index < this.frames.length) {
+                        const frame = this.frames[index];
+                        const img = new Image();
+                        img.onload = () => {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 0, 0);
+                        };
+                        img.src = frame;
+                        this.selectedFrameIndex = index;
+                        document.getElementById('currentFrame').textContent = index + 1;
+                    }
+                }
+            };
             
-            // 快速切换工具快捷键
-            if (e.key === 'e') {
-                // 切换到橡皮擦
-                drawingToolSelect.value = 'eraser';
-                drawingToolSelect.dispatchEvent(new Event('change'));
-            } else if (e.key === 'b') {
-                // 切换到铅笔
-                drawingToolSelect.value = 'pencil';
-                drawingToolSelect.dispatchEvent(new Event('change'));
-            }
-        });
+            // 进度条事件监听
+            document.getElementById('frameProgress').addEventListener('input', function() {
+                const frameIndex = parseInt(this.value);
+                animationManager.showFrame(frameIndex);
+            });
         
         // 生成调色板
         function generatePalette() {
@@ -1410,11 +1745,79 @@
             }
         });
         
+        // 动画控制按钮事件监听
+        document.getElementById('addFrame').addEventListener('click', function() {
+            animationManager.addFrame();
+            animationManager.updateProgressBar();
+        });
+
+        document.getElementById('deleteFrame').addEventListener('click', function() {
+            if (animationManager.selectedFrameIndex >= 0) {
+            animationManager.deleteFrame(animationManager.selectedFrameIndex);
+            animationManager.updateProgressBar();
+            }
+        });
+
+        document.getElementById('copyFrame').addEventListener('click', function() {
+            if (animationManager.selectedFrameIndex >= 0) {
+            animationManager.copyFrame(animationManager.selectedFrameIndex);
+            animationManager.updateProgressBar();
+            }
+        });
+
+        document.getElementById('playAnimation').addEventListener('click', function() {
+            if (animationManager.isPlaying) {
+                animationManager.stop();
+                this.textContent = '播放';
+                this.style.backgroundColor = '';
+            } else {
+                animationManager.play();
+                this.textContent = '停止';
+                this.style.backgroundColor = '#2ecc71';
+            }
+        });
+
+        document.getElementById('stopAnimation').addEventListener('click', function() {
+            animationManager.stop();
+            document.getElementById('playAnimation').textContent = '播放';
+            document.getElementById('playAnimation').style.backgroundColor = '';
+        });
+
+        // 帧预览点击事件
+        document.getElementById('framesPreview').addEventListener('click', function(e) {
+            const frameElement = e.target.closest('.frame-preview');
+            if (frameElement) {
+                const index = Array.from(this.children).indexOf(frameElement);
+                if (index >= 0) {
+                    animationManager.selectedFrameIndex = index;
+                    // 高亮选中的帧
+                    this.querySelectorAll('.frame-preview').forEach((el, i) => {
+                        el.style.borderColor = i === index ? '#ff9933' : '#5a3921';
+                    });
+                    
+                    // 加载选中帧到画布
+                    const frame = animationManager.frames[index];
+                    const img = new Image();
+                    img.onload = function() {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                    };
+                    img.src = frame;
+                }
+            }
+        });
+
+        document.getElementById('frameRate').addEventListener('input', function() {
+            const frameRate = parseInt(this.value);
+            animationManager.setFrameRate(frameRate);
+        });
+
         // 初始化
         initCanvas();
         generatePalette();
         updateUndoRedoButtons();
         saveState(); // 保存初始状态
+        animationManager.updateProgressBar(); // 初始化进度条状态
         
         // 添加画布缩放功能
         let scaleFactor = 1.0; // 初始缩放比例
