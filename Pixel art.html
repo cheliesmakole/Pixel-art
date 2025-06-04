@@ -472,10 +472,7 @@
             font-size: 8px;
             color: #ffcc99;
         }
-    </style>
-    
-    <!-- 更新进度条样式 -->
-    <style>
+        /*进度条样式*/
         .progress-container {
             display: flex;
             align-items: center;
@@ -620,7 +617,7 @@
                 <!-- 可交互进度条 - 放在画布下方 -->
                 <div class="progress-container" style="width: 90%; margin-top: 10px; margin-left: auto; margin-right: auto;">
                     <input type="range" id="frameProgress" min="1" max="1" value="1" class="progress-bar" style="width: 100%;">
-                    <span class="progress-text">帧: <span id="currentFrame">1</span>/<span id="totalFrames">1</span></span>
+                    <span class="progress-text">第<span id="currentFrame">1</span>帧，共<span id="totalFrames">1</span>帧</span>
                 </div>
             </div>
 
@@ -706,6 +703,20 @@
                         <span>选择文件</span>
                     </div>
                 </div>
+            </div>
+            <div class="control-group">
+                <h3>动画控制</h3>
+                <div class="animation-buttons">
+                    <button id="addFrame">添加</button>
+                    <button id="deleteFrame">删除</button>
+                    <button id="copyFrame">复制</button>
+                    <button id="playAnimation">播放</button>
+                </div>
+                <div class="animation-settings">
+                    <label>帧率: <input type="range" id="frameRate" min="1" max="30" value="12"></label>
+                    <span id="frameRateValue">12 FPS</span>
+                </div>
+                <div class="frames-preview" id="framesPreview"></div>
             </div>
         </div>
     </div>
@@ -1488,7 +1499,13 @@
         const gradientModeBtn = document.getElementById('gradientMode');
         gradientModeBtn.addEventListener('click', function() {
             isGradientMode = !isGradientMode;
-            this.style.backgroundColor = isGradientMode ? '#2980b9' : '#3498db';
+            // 激活时显示蓝色，取消时恢复默认颜色
+            if (isGradientMode) {
+                this.style.backgroundColor = '#2980b9';
+                this.style.transition = 'background-color 0.3s ease';
+            } else {
+                this.style.backgroundColor = '';
+            }
         });
         
         templateSelect.addEventListener('change', function() {
@@ -1520,25 +1537,7 @@
         saveProjectBtn.addEventListener('click', saveProject);
         loadProjectBtn.addEventListener('click', loadProject);
 
-        // 动画控制
-        const animationControls = document.createElement('div');
-        animationControls.className = 'control-group';
-        animationControls.innerHTML = `
-            <h3>动画控制</h3>
-            <div class="animation-buttons">
-                <button id="addFrame">添加帧</button>
-                <button id="deleteFrame">删除帧</button>
-                <button id="copyFrame">复制帧</button>
-                <button id="playAnimation">播放</button>
-                <button id="stopAnimation">停止</button>
-            </div>
-            <div class="animation-settings">
-                <label>帧率: <input type="range" id="frameRate" min="1" max="30" value="12"></label>
-                <span id="frameRateValue">12 FPS</span>
-            </div>
-            <div class="frames-preview" id="framesPreview"></div>
-        `;
-        document.querySelector('.controls').appendChild(animationControls);
+
         
         // 撤销/重做按钮
         const undoBtn = document.getElementById('undoBtn');
@@ -1628,6 +1627,11 @@
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(img, 0, 0);
                         
+                        // 更新当前选中帧索引
+                        this.selectedFrameIndex = this.currentFrameIndex;
+                        // 更新进度条和帧数显示
+                        this.updateProgressBar();
+                        
                         this.currentFrameIndex++;
                         if (this.currentFrameIndex >= this.frames.length) {
                             this.currentFrameIndex = 0;
@@ -1668,18 +1672,22 @@
                     const progressBar = document.getElementById('frameProgress');
                     const currentFrameEl = document.getElementById('currentFrame');
                     const totalFramesEl = document.getElementById('totalFrames');
-                    
+
+                    // 计算总帧数(基于frames数组长度)，确保最小值为1
                     const totalFrames = this.frames.length;
-                    totalFramesEl.textContent = totalFrames;
-                    progressBar.max = Math.max(1, totalFrames);
+                    const displayFrames = Math.max(1, totalFrames);
                     
-                    if (totalFrames > 0) {
-                        progressBar.value = this.selectedFrameIndex + 1;
-                        currentFrameEl.textContent = progressBar.value;
-                    } else {
-                        progressBar.value = 1;
-                        currentFrameEl.textContent = '1';
-                    }
+                    // 更新显示
+                    totalFramesEl.textContent = displayFrames;
+                    progressBar.max = displayFrames;
+                    
+                    // 设置当前帧显示，确保在有效范围内
+                    const currentFrame = Math.min(
+                        Math.max(1, this.selectedFrameIndex + 1),
+                        displayFrames
+                    );
+                    progressBar.value = currentFrame;
+                    currentFrameEl.textContent = currentFrame;
                 },
                 
                 showFrame: function(index) {
@@ -1698,10 +1706,15 @@
             };
             
             // 进度条事件监听
-            document.getElementById('frameProgress').addEventListener('input', function() {
-                const frameIndex = parseInt(this.value);
+            const frameProgress = document.getElementById('frameProgress');
+            frameProgress.addEventListener('input', function() {
+                // 进度条值从1开始，对应帧索引需要减1
+                const frameIndex = Math.max(0, parseInt(this.value) - 1);
                 animationManager.showFrame(frameIndex);
             });
+            
+            // 确保进度条范围正确
+            frameProgress.min = 1;
         
         // 生成调色板
         function generatePalette() {
@@ -1779,11 +1792,11 @@
             }
         });
 
-        document.getElementById('stopAnimation').addEventListener('click', function() {
-            animationManager.stop();
-            document.getElementById('playAnimation').textContent = '播放';
-            document.getElementById('playAnimation').style.backgroundColor = '';
-        });
+        // document.getElementById('stopAnimation').addEventListener('click', function() {
+        //     animationManager.stop();
+        //     document.getElementById('playAnimation').textContent = '播放';
+        //     document.getElementById('playAnimation').style.backgroundColor = '';
+        // });
 
         // 帧预览点击事件
         document.getElementById('framesPreview').addEventListener('click', function(e) {
@@ -1803,6 +1816,8 @@
                     img.onload = function() {
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(img, 0, 0);
+                        // 更新进度条和帧数显示
+                        animationManager.updateProgressBar();
                     };
                     img.src = frame;
                 }
